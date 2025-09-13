@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://vrinda41198.github.io/stocky/sitemap.xml
