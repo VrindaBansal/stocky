@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Stocky Flow</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .test-section { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
+    .success { background: #d4edda; border-color: #c3e6cb; }
+    .error { background: #f8d7da; border-color: #f5c6cb; }
+    button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+    .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Stocky Backend Test Flow</h1>
+  
+  <div class="test-section">
+    <h3>1. Clear localStorage (Simulate New User)</h3>
+    <button onclick="clearStorage()">Clear All Storage</button>
+    <div id="clear-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>2. Test Backend Registration</h3>
+    <button onclick="testRegistration()">Register New User</button>
+    <div id="register-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>3. Test Backend Login/Profile</h3>
+    <button onclick="testProfile()">Get Profile</button>
+    <div id="profile-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>4. Test Portfolios</h3>
+    <button onclick="testPortfolios()">Get Portfolios</button>
+    <div id="portfolio-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>5. Navigate to App</h3>
+    <a href="http://localhost:3003" target="_blank">Open Stocky App</a>
+    <p><em>App should show onboarding flow for new users</em></p>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3001/api';
+    let authToken = null;
+
+    function clearStorage() {
+      localStorage.clear();
+      sessionStorage.clear();
+      document.getElementById('clear-result').innerHTML = '<strong style="color: green;">✅ All storage cleared</strong>';
+    }
+
+    async function testRegistration() {
+      try {
+        const response = await fetch(`${API_BASE}/auth/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: 'testuser' + Date.now(),
+            email: 'test' + Date.now() + '@example.com',
+            password: 'temp123',
+            avatar: 'default'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          authToken = data.token;
+          document.getElementById('register-result').innerHTML = `
+            <strong style="color: green;">✅ Registration Success</strong><br>
+            User ID: ${data.user.id}<br>
+            Username: ${data.user.username}<br>
+            Token: ${data.token.substring(0, 20)}...
+          `;
+        } else {
+          throw new Error(data.error || 'Registration failed');
+        }
+      } catch (error) {
+        document.getElementById('register-result').innerHTML = `
+          <strong style="color: red;">❌ Registration Failed</strong><br>
+          ${error.message}
+        `;
+      }
+    }
+
+    async function testProfile() {
+      if (!authToken) {
+        document.getElementById('profile-result').innerHTML = '<strong style="color: red;">❌ No auth token. Register first.</strong>';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/profile`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          document.getElementById('profile-result').innerHTML = `
+            <strong style="color: green;">✅ Profile Success</strong><br>
+            ID: ${data.id}<br>
+            Username: ${data.username}<br>
+            Email: ${data.email}<br>
+            Avatar: ${data.avatar}<br>
+            Created: ${new Date(data.created_at).toLocaleString()}
+          `;
+        } else {
+          throw new Error(data.error || 'Profile fetch failed');
+        }
+      } catch (error) {
+        document.getElementById('profile-result').innerHTML = `
+          <strong style="color: red;">❌ Profile Failed</strong><br>
+          ${error.message}
+        `;
+      }
+    }
+
+    async function testPortfolios() {
+      if (!authToken) {
+        document.getElementById('portfolio-result').innerHTML = '<strong style="color: red;">❌ No auth token. Register first.</strong>';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/portfolios`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          document.getElementById('portfolio-result').innerHTML = `
+            <strong style="color: green;">✅ Portfolios Success</strong><br>
+            Count: ${data.length}<br>
+            Portfolios: ${data.map(p => `${p.level} (${p.balance})`).join(', ')}
+          `;
+        } else {
+          throw new Error(data.error || 'Portfolio fetch failed');
+        }
+      } catch (error) {
+        document.getElementById('portfolio-result').innerHTML = `
+          <strong style="color: red;">❌ Portfolios Failed</strong><br>
+          ${error.message}
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

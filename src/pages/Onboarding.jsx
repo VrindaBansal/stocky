@@ -13,8 +13,7 @@ import {
   BookOpen,
   ShieldCheck,
   User,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  TrendingDown,
   Rocket,
   Diamond,
   BarChart3
@@ -29,7 +28,7 @@ const Onboarding = () => {
   const avatars = [
     { id: 'default', name: 'Classic', color: 'bg-gray-500', icon: User },
     { id: 'bull', name: 'Bull', color: 'bg-green-500', icon: TrendingUp },
-    { id: 'bear', name: 'Bear', color: 'bg-red-500', icon: TrendingDownIcon },
+    { id: 'bear', name: 'Bear', color: 'bg-red-500', icon: TrendingDown },
     { id: 'rocket', name: 'Rocket', color: 'bg-blue-500', icon: Rocket },
     { id: 'diamond', name: 'Diamond', color: 'bg-purple-500', icon: Diamond },
     { id: 'chart', name: 'Trending', color: 'bg-orange-500', icon: BarChart3 }
@@ -37,8 +36,8 @@ const Onboarding = () => {
 
   const steps = [
     {
-      title: 'Welcome to Stocky!',
-      subtitle: 'Your gamified stock learning adventure begins here',
+      title: 'Get Started',
+      subtitle: 'Master the art of stock investing through interactive gameplay',
       content: (
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
@@ -61,7 +60,7 @@ const Onboarding = () => {
           </motion.div>
           
           <div>
-            <h1 className="text-4xl font-bold gradient-text mb-2">Welcome to Stocky!</h1>
+            <h1 className="text-4xl font-bold gradient-text mb-2">Start Your Journey</h1>
             <p className="text-xl text-gray-600">
               Learn stock investing through fun, interactive gameplay
             </p>
@@ -160,7 +159,7 @@ const Onboarding = () => {
         >
           <div className="grid gap-4">
             {[
-              { level: 1, title: 'Paper Trader', desc: 'Learn basics with $100', icon: '📝' },
+              { level: 1, title: 'Paper Trader', desc: 'Learn basics with $200', icon: '📝' },
               { level: 2, title: 'Market Explorer', desc: 'Explore sectors with $500', icon: '🔍' },
               { level: 3, title: 'Strategic Investor', desc: 'Master orders with $1,000', icon: '🎯' },
               { level: 4, title: 'Advanced Trader', desc: 'Short selling with $5,000', icon: '🚀' },
@@ -244,19 +243,21 @@ const Onboarding = () => {
   const handleStart = async () => {
     if (username.trim()) {
       try {
-        // Register user with backend
+        // Try backend registration first
+        console.log('Attempting backend registration...');
         await dispatch(registerUser({ 
           username: username.trim(), 
           avatar: selectedAvatar,
-          email: `${username.trim()}@example.com`, // Temporary email
-          password: 'temp123' // Temporary password for demo
+          email: `${username.trim()}@example.com`,
+          password: 'temp123'
         })).unwrap();
         
+        console.log('✅ Backend registration successful');
         dispatch(initializePortfolios());
         dispatch(completeOnboarding());
       } catch (error) {
-        console.error('Registration failed:', error);
-        // Fallback to local storage if API fails
+        console.warn('❌ Backend registration failed, using localStorage:', error.message);
+        // Fallback to localStorage if API fails
         dispatch(createUser({ username: username.trim(), avatar: selectedAvatar }));
         dispatch(initializePortfolios());
         dispatch(completeOnboarding());
@@ -291,7 +292,7 @@ const Onboarding = () => {
               Step {currentStep + 1} of {steps.length}
             </span>
             <span className="text-sm font-medium text-primary">
-              {Math.round(((currentStep + 1) / steps.length) * 100)}%
+              {Math.round(((currentStep + 1) / steps.length) * 100)}% Complete
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">

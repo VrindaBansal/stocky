@@ -27,25 +27,36 @@ function App() {
   const { isInitialized, isOnboarding } = useSelector(state => state.user);
   
   useEffect(() => {
-    // Try to initialize from API first, fallback to localStorage
-    dispatch(initializeUserFromAPI())
-      .then((result) => {
+    // Smart initialization: Try backend first, fallback to localStorage
+    const initializeApp = async () => {
+      try {
+        // Try to initialize from API first
+        const result = await dispatch(initializeUserFromAPI());
         if (result.payload) {
           // User is authenticated, fetch portfolios from API
-          dispatch(fetchAllPortfolios()).catch(() => {
+          try {
+            await dispatch(fetchAllPortfolios());
+          } catch (error) {
+            console.warn('Portfolio API failed, using localStorage');
             dispatch(initializePortfolios());
-          });
+          }
         } else {
           // No authenticated user, use localStorage
+          dispatch(initializeUser());
           dispatch(initializePortfolios());
         }
-      })
-      .catch(() => {
+      } catch (error) {
+        console.warn('Backend unavailable, using localStorage only');
+        // Fallback to localStorage if API fails
         dispatch(initializeUser());
         dispatch(initializePortfolios());
-      });
-    dispatch(initializeTutorial());
-    dispatch(recordLogin());
+      }
+      
+      dispatch(initializeTutorial());
+      dispatch(recordLogin());
+    };
+
+    initializeApp();
   }, [dispatch]);
 
   // Show loading if not initialized

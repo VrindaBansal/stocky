@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3010/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 class ApiService {
   constructor() {
@@ -22,15 +22,25 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
-
+      
+      // Handle case where server is not running or returns 404
       if (!response.ok) {
-        throw new Error(data.error || data.message || 'API request failed');
+        if (response.status === 404 || response.status === 0) {
+          throw new Error('Backend server not available');
+        }
+        // Try to parse JSON response
+        try {
+          const data = await response.json();
+          throw new Error(data.error || data.message || 'API request failed');
+        } catch {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
       }
 
+      const data = await response.json();
       return data;
     } catch (error) {
-      console.error(`API Error (${endpoint}):`, error);
+      console.warn(`API Error (${endpoint}):`, error.message);
       throw error;
     }
   }
