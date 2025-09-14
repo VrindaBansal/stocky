@@ -82,13 +82,36 @@ class StockService {
   }
 
   // Simulate price updates for demo purposes
-  updatePrices() {
+  updatePrices(timeAcceleration = 1, hoursElapsed = 0.25) {
     Object.keys(this.stockData).forEach(symbol => {
       const stock = this.stockData[symbol];
-      const volatility = 0.001; // 0.1% per update
-      const change = (Math.random() - 0.5) * 2 * volatility;
       
-      const newPrice = stock.price * (1 + change);
+      // Different stocks have different characteristics
+      let volatility, trend;
+      switch(symbol) {
+        case 'AAPL':
+          volatility = 0.015; // Higher volatility for growth
+          trend = Math.sin(Date.now() / 1000000) * 0.003; // Slight upward bias
+          break;
+        case 'MSFT':
+          volatility = 0.012;
+          trend = 0.002; // Steady upward trend
+          break;
+        case 'GOOGL':
+          volatility = 0.018;
+          trend = Math.cos(Date.now() / 800000) * 0.002; // More volatile
+          break;
+        default:
+          volatility = 0.01;
+          trend = 0;
+      }
+      
+      // Scale volatility based on time acceleration
+      const scaledVolatility = volatility * Math.sqrt(timeAcceleration * hoursElapsed);
+      const randomChange = (Math.random() - 0.5) * 2 * scaledVolatility;
+      const totalChange = randomChange + trend;
+      
+      const newPrice = stock.price * (1 + totalChange);
       const priceChange = newPrice - stock.previousClose;
       
       stock.price = Math.round(newPrice * 100) / 100;
@@ -108,6 +131,45 @@ class StockService {
         stock.chartData = stock.chartData.slice(-30);
       }
     });
+  }
+
+  // Simulate time-based price evolution to help users reach their 20% goal
+  simulateTimeProgression(timeSpeed, minutes = 1) {
+    // Update prices based on time acceleration
+    const hoursElapsed = (minutes / 60) * timeSpeed;
+    this.updatePrices(timeSpeed, hoursElapsed);
+    
+    // Return current prices for real-time updates
+    return this.stockData;
+  }
+
+  // Get helpful stock suggestion based on current portfolio
+  getGrowthSuggestion(currentValue, targetValue, positions = []) {
+    const shortfall = targetValue - currentValue;
+    const growthNeeded = (shortfall / currentValue) * 100;
+    
+    if (growthNeeded <= 1) {
+      return {
+        type: 'success',
+        message: "You're almost there! Try speeding up time or consider making one more small trade.",
+        recommendedStock: 'MSFT',
+        reason: 'MSFT has shown steady growth patterns.'
+      };
+    } else if (growthNeeded <= 3) {
+      return {
+        type: 'info',
+        message: "You need about " + Math.ceil(growthNeeded) + "% more growth. Try different stocks or speed up time!",
+        recommendedStock: 'AAPL',
+        reason: 'AAPL has good growth potential for small gains.'
+      };
+    } else {
+      return {
+        type: 'warning',
+        message: "You need " + Math.ceil(growthNeeded) + "% growth. Speed up time and try trading more actively!",
+        recommendedStock: 'GOOGL',
+        reason: 'GOOGL has higher volatility and growth potential.'
+      };
+    }
   }
 
   async getQuote(symbol) {

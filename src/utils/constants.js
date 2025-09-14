@@ -5,7 +5,7 @@ export const LEVELS = {
     description: 'Master the basics of buying and selling stocks',
     startingCapital: 200,
     availableStocks: ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN'],
-    winCondition: 240, // $240 (20% gain)
+    winCondition: 210, // $210 (5% gain)
     features: ['buy', 'sell', 'portfolio'],
     requiredTrades: 5,
     icon: '📝'

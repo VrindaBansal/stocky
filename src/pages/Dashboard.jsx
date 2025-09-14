@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import TutorialOverlay from '../components/tutorial/TutorialOverlay.jsx';
 import CustomPortfolioModal from '../components/CustomPortfolioModal.jsx';
 import TradingModal from '../components/TradingModal.jsx';
+import PortfolioChart from '../components/charts/PortfolioChart.jsx';
 import { startTutorial, closeTutorial, completeTutorial } from '../store/slices/tutorialSlice.js';
+import { updatePrices } from '../store/slices/portfolioSlice.js';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -26,6 +28,7 @@ import {
 // Utils
 import { formatCurrency, formatPercentage, getGainLossColor } from '../utils/helpers.js';
 import { LEVELS } from '../utils/constants.js';
+import stockService from '../services/stockServiceSimple.js';
 
 const Dashboard = () => {
   const dispatch = useDispatch();
@@ -38,6 +41,8 @@ const Dashboard = () => {
   const [showTradingModal, setShowTradingModal] = useState(false);
   const [timeSpeed, setTimeSpeed] = useState(1);
   const [gameTime, setGameTime] = useState(new Date());
+  const [growthSuggestion, setGrowthSuggestion] = useState(null);
+  const [isSimulatingTime, setIsSimulatingTime] = useState(false);
 
 
   useEffect(() => {
@@ -54,31 +59,98 @@ const Dashboard = () => {
     }
   }, [user, tutorial.hasCompletedTutorial, portfolio?.transactions?.length, dispatch]);
 
-  const currentLevel = user?.currentLevel || 1;
-  const currentLevelConfig = LEVELS[currentLevel] || LEVELS[1];
-  const totalValue = portfolio?.totalValue || 0;
-  const startingValue = portfolio?.startingValue || 1;
-  const totalGain = totalValue - startingValue;
-  const totalGainPercent = ((totalValue - startingValue) / startingValue) * 100;
-  const progressToNext = (totalValue / currentLevelConfig.winCondition) * 100;
+  // Memoize expensive calculations
+  const portfolioStats = useMemo(() => {
+    const currentLevel = user?.currentLevel || 1;
+    const currentLevelConfig = LEVELS[currentLevel] || LEVELS[1];
+    const totalValue = portfolio?.totalValue || 0;
+    const startingValue = portfolio?.startingValue || 1;
+    const totalGain = totalValue - startingValue;
+    const totalGainPercent = ((totalValue - startingValue) / startingValue) * 100;
+    const progressToNext = (totalValue / currentLevelConfig.winCondition) * 100;
+
+    return {
+      currentLevel,
+      currentLevelConfig,
+      totalValue,
+      startingValue,
+      totalGain,
+      totalGainPercent,
+      progressToNext
+    };
+  }, [user?.currentLevel, portfolio?.totalValue, portfolio?.startingValue]);
 
   // Time acceleration effect for Level 1
   useEffect(() => {
-    if (currentLevel === 1 && timeSpeed > 1) {
-      const interval = setInterval(() => {
+    if (portfolioStats.currentLevel === 1 && timeSpeed > 1 && isSimulatingTime) {
+      const interval = setInterval(async () => {
         setGameTime(prev => new Date(prev.getTime() + (timeSpeed * 60000))); // Accelerate time
+        
+        // Simulate price changes based on time acceleration
+        const updatedStockData = stockService.simulateTimeProgression(timeSpeed, 1);
+        
+        // Update portfolio prices with the new stock prices
+        const quotes = {};
+        Object.keys(updatedStockData).forEach(symbol => {
+          quotes[symbol] = {
+            price: updatedStockData[symbol].price,
+            change: updatedStockData[symbol].change,
+            changePercent: updatedStockData[symbol].changePercent
+          };
+        });
+        
+        // Dispatch the updated prices to the portfolio
+        dispatch(updatePrices(quotes));
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [timeSpeed, currentLevel]);
+  }, [timeSpeed, portfolioStats.currentLevel, isSimulatingTime, dispatch]);
 
-  const handleTutorialClose = () => {
+  // Generate growth suggestions for Level 1 portfolio growth objective
+  useEffect(() => {
+    if (portfolioStats.currentLevel === 1) {
+      const suggestion = stockService.getGrowthSuggestion(
+        portfolioStats.totalValue,
+        portfolioStats.currentLevelConfig.winCondition,
+        portfolio?.positions || []
+      );
+      setGrowthSuggestion(suggestion);
+    }
+  }, [portfolioStats.totalValue, portfolioStats.currentLevel, portfolioStats.currentLevelConfig.winCondition, portfolio?.positions]);
+
+  // Memoize callback functions to prevent unnecessary re-renders
+  const handleTutorialClose = useCallback(() => {
     dispatch(closeTutorial());
-  };
+  }, [dispatch]);
 
-  const handleTutorialComplete = () => {
+  const handleTutorialComplete = useCallback(() => {
     dispatch(completeTutorial());
-  };
+  }, [dispatch]);
+
+  const handleShowTradingModal = useCallback(() => {
+    setShowTradingModal(true);
+  }, []);
+
+  const handleCloseTradingModal = useCallback(() => {
+    setShowTradingModal(false);
+  }, []);
+
+  const handleStartTimeSimulation = useCallback(() => {
+    setIsSimulatingTime(true);
+  }, []);
+
+  const handleStopTimeSimulation = useCallback(() => {
+    setIsSimulatingTime(false);
+  }, []);
+
+  const handleSpeedChange = useCallback((speed) => {
+    setTimeSpeed(speed);
+    if (speed === 1) {
+      setIsSimulatingTime(false);
+    } else {
+      setIsSimulatingTime(true);
+    }
+  }, []);
 
   // Handle loading or error states
   if (!user || !portfolio || !user.isInitialized) {
@@ -110,8 +182,9 @@ const Dashboard = () => {
     { id: 2, name: 'Day Trader', icon: '⚡', date: 'Yesterday' }
   ];
 
-  // Get level-specific objectives/tasks
-  const getLevelObjectives = (level) => {
+  // Memoize level-specific objectives/tasks
+  const levelObjectives = useMemo(() => {
+    const level = portfolioStats.currentLevel;
     const transactions = portfolio?.transactions || [];
     const positions = portfolio?.positions || [];
     const uniqueSymbols = [...new Set(positions.map(p => p.symbol))];
@@ -125,7 +198,7 @@ const Dashboard = () => {
             completed: transactions.length > 0,
             action: {
               label: 'Start Trading',
-              onClick: () => setShowTradingModal(true)
+              onClick: handleShowTradingModal
             }
           },
           {
@@ -138,16 +211,30 @@ const Dashboard = () => {
             },
             action: transactions.length > 0 ? {
               label: 'Continue Trading',
-              onClick: () => setShowTradingModal(true)
+              onClick: handleShowTradingModal
             } : null
           },
           {
-            title: 'Achieve 20% Portfolio Growth',
-            description: `Grow your portfolio from $200 to $240`,
-            completed: totalValue >= currentLevelConfig.winCondition,
+            title: 'Achieve 5% Portfolio Growth',
+            description: `Grow your portfolio from $${portfolioStats.currentLevelConfig.startingCapital} to $${portfolioStats.currentLevelConfig.winCondition}`,
+            completed: portfolioStats.totalValue >= portfolioStats.currentLevelConfig.winCondition,
             progress: {
-              current: Math.max(totalValue, currentLevelConfig.startingCapital),
-              target: currentLevelConfig.winCondition
+              current: Math.max(portfolioStats.totalValue, portfolioStats.currentLevelConfig.startingCapital),
+              target: portfolioStats.currentLevelConfig.winCondition
+            },
+            hint: growthSuggestion,
+            action: portfolioStats.totalValue < portfolioStats.currentLevelConfig.winCondition ? {
+              label: '📈 Help Me Reach 5%',
+              onClick: () => {
+                if (timeSpeed === 1) {
+                  handleSpeedChange(10); // Speed up time to see stock changes
+                } else {
+                  handleShowTradingModal(); // Open trading modal for more actions
+                }
+              }
+            } : {
+              label: '🎉 Goal Achieved!',
+              onClick: () => {} // Disabled when completed
             }
           },
           {
@@ -188,10 +275,10 @@ const Dashboard = () => {
           {
             title: 'Achieve $600 Portfolio Value',
             description: 'Grow your $500 starting capital by 20%',
-            completed: totalValue >= currentLevelConfig.winCondition,
+            completed: portfolioStats.totalValue >= portfolioStats.currentLevelConfig.winCondition,
             progress: {
-              current: Math.max(totalValue, currentLevelConfig.startingCapital),
-              target: currentLevelConfig.winCondition
+              current: Math.max(portfolioStats.totalValue, portfolioStats.currentLevelConfig.startingCapital),
+              target: portfolioStats.currentLevelConfig.winCondition
             }
           }
         ];
@@ -219,10 +306,10 @@ const Dashboard = () => {
           {
             title: 'Achieve $1,300 Portfolio Value',
             description: 'Grow your $1,000 starting capital by 30%',
-            completed: totalValue >= currentLevelConfig.winCondition,
+            completed: portfolioStats.totalValue >= portfolioStats.currentLevelConfig.winCondition,
             progress: {
-              current: Math.max(totalValue, currentLevelConfig.startingCapital),
-              target: currentLevelConfig.winCondition
+              current: Math.max(portfolioStats.totalValue, portfolioStats.currentLevelConfig.startingCapital),
+              target: portfolioStats.currentLevelConfig.winCondition
             }
           }
         ];
@@ -250,10 +337,10 @@ const Dashboard = () => {
           {
             title: 'Achieve $6,500 Portfolio Value',
             description: 'Grow your $5,000 starting capital by 30% using advanced strategies',
-            completed: totalValue >= currentLevelConfig.winCondition,
+            completed: portfolioStats.totalValue >= portfolioStats.currentLevelConfig.winCondition,
             progress: {
-              current: Math.max(totalValue, currentLevelConfig.startingCapital),
-              target: currentLevelConfig.winCondition
+              current: Math.max(portfolioStats.totalValue, portfolioStats.currentLevelConfig.startingCapital),
+              target: portfolioStats.currentLevelConfig.winCondition
             }
           }
         ];
@@ -281,10 +368,10 @@ const Dashboard = () => {
           {
             title: 'Achieve $15,000 Portfolio Value',
             description: 'Grow your $10,000 starting capital by 50% - the ultimate challenge!',
-            completed: totalValue >= currentLevelConfig.winCondition,
+            completed: portfolioStats.totalValue >= portfolioStats.currentLevelConfig.winCondition,
             progress: {
-              current: Math.max(totalValue, currentLevelConfig.startingCapital),
-              target: currentLevelConfig.winCondition
+              current: Math.max(portfolioStats.totalValue, portfolioStats.currentLevelConfig.startingCapital),
+              target: portfolioStats.currentLevelConfig.winCondition
             }
           }
         ];
@@ -292,7 +379,7 @@ const Dashboard = () => {
       default:
         return [];
     }
-  };
+  }, [portfolioStats.currentLevel, portfolio?.transactions, portfolio?.positions, portfolioStats.totalValue, portfolioStats.currentLevelConfig]);
 
   return (
     <motion.div
@@ -302,27 +389,36 @@ const Dashboard = () => {
       className="space-y-8"
     >
       {/* Time Control (Level 1 only) */}
-      {currentLevel === 1 && (
+      {portfolioStats.currentLevel === 1 && (
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200"
+          className={`rounded-xl p-6 border-2 transition-all ${
+            portfolioStats.totalValue >= portfolioStats.currentLevelConfig.winCondition
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+              : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200'
+          }`}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <Clock className="w-6 h-6 text-blue-600" />
               <div>
-                <h3 className="font-semibold text-gray-900">Game Time Control</h3>
-                <p className="text-sm text-gray-600">Speed up time to see market changes</p>
+                <h3 className="font-semibold text-gray-900">Portfolio Growth Challenge</h3>
+                <p className="text-sm text-gray-600">
+                  {portfolioStats.totalValue >= portfolioStats.currentLevelConfig.winCondition 
+                    ? "🎉 Congratulations! You reached your growth target!"
+                    : "Speed up time to see how your investments perform"
+                  }
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Speed:</span>
+              <span className="text-sm text-gray-600">Time Speed:</span>
               <div className="flex space-x-1">
                 {[1, 5, 10, 30].map((speed) => (
                   <button
                     key={speed}
-                    onClick={() => setTimeSpeed(speed)}
+                    onClick={() => handleSpeedChange(speed)}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
                       timeSpeed === speed
                         ? 'bg-blue-500 text-white'
@@ -333,11 +429,43 @@ const Dashboard = () => {
                   </button>
                 ))}
               </div>
-              {timeSpeed > 1 && (
+              {isSimulatingTime && (
                 <FastForward className="w-4 h-4 text-blue-600 animate-pulse" />
               )}
             </div>
           </div>
+
+          {/* Growth Suggestion */}
+          {growthSuggestion && portfolioStats.totalValue < portfolioStats.currentLevelConfig.winCondition && (
+            <div className={`p-4 rounded-lg border ${
+              growthSuggestion.type === 'success' ? 'bg-green-50 border-green-200' :
+              growthSuggestion.type === 'info' ? 'bg-blue-50 border-blue-200' :
+              'bg-orange-50 border-orange-200'
+            }`}>
+              <div className="flex items-start space-x-3">
+                <div className={`w-2 h-2 rounded-full mt-2 ${
+                  growthSuggestion.type === 'success' ? 'bg-green-500' :
+                  growthSuggestion.type === 'info' ? 'bg-blue-500' :
+                  'bg-orange-500'
+                }`} />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-700 mb-2">{growthSuggestion.message}</p>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-xs font-medium text-gray-600">💡 Try:</span>
+                    <span className="text-sm font-semibold text-gray-800">{growthSuggestion.recommendedStock}</span>
+                    <span className="text-xs text-gray-600">{growthSuggestion.reason}</span>
+                    <button
+                      onClick={handleShowTradingModal}
+                      className="text-xs bg-white px-2 py-1 rounded border hover:bg-gray-50 transition-colors"
+                    >
+                      Trade Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {timeSpeed > 1 && (
             <div className="mt-3 text-xs text-blue-600 bg-blue-100 px-3 py-1 rounded-full inline-block">
               Game Time: {gameTime.toLocaleTimeString()} (accelerated {timeSpeed}x)
@@ -360,10 +488,10 @@ const Dashboard = () => {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-900 font-mono">
-              {formatCurrency(totalValue)}
+              {formatCurrency(portfolioStats.totalValue)}
             </p>
             <p className="text-sm text-gray-500">
-              Starting: {formatCurrency(startingValue)}
+              Starting: {formatCurrency(portfolioStats.startingValue)}
             </p>
           </div>
         </motion.div>
@@ -376,16 +504,16 @@ const Dashboard = () => {
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-gray-600">Total Return</h3>
-            <div className={`w-4 h-4 ${totalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {totalGain >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+            <div className={`w-4 h-4 ${portfolioStats.totalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {portfolioStats.totalGain >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             </div>
           </div>
           <div className="space-y-1">
-            <p className={`text-2xl font-bold font-mono ${getGainLossColor(totalGain)}`}>
-              {totalGainPercent >= 0 ? '+' : ''}{totalGainPercent.toFixed(1)}%
+            <p className={`text-2xl font-bold font-mono ${getGainLossColor(portfolioStats.totalGain)}`}>
+              {portfolioStats.totalGainPercent >= 0 ? '+' : ''}{portfolioStats.totalGainPercent.toFixed(1)}%
             </p>
-            <p className={`text-sm ${getGainLossColor(totalGain)}`}>
-              {totalGain >= 0 ? '+' : ''}{formatCurrency(totalGain)}
+            <p className={`text-sm ${getGainLossColor(portfolioStats.totalGain)}`}>
+              {portfolioStats.totalGain >= 0 ? '+' : ''}{formatCurrency(portfolioStats.totalGain)}
             </p>
           </div>
         </motion.div>
@@ -399,43 +527,57 @@ const Dashboard = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-gray-600">Level Progress</h3>
             <div className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-              {currentLevel}/5
+              {portfolioStats.currentLevel}/5
             </div>
           </div>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-lg font-semibold text-gray-900">
-                {currentLevelConfig.name}
+                {portfolioStats.currentLevelConfig.name}
               </p>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.min(progressToNext, 100)}%` }}
+                animate={{ width: `${Math.min(portfolioStats.progressToNext, 100)}%` }}
                 transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
                 className="bg-gray-900 h-2 rounded-full"
               ></motion.div>
             </div>
             <p className="text-xs text-gray-500">
-              Target: {formatCurrency(currentLevelConfig.winCondition)}
+              Target: {formatCurrency(portfolioStats.currentLevelConfig.winCondition)}
             </p>
           </div>
         </motion.div>
       </div>
 
-      {/* Game-like Level Progression */}
+      {/* Live Stock Performance Chart */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.4, ease: "easeOut" }}
+      >
+        <PortfolioChart 
+          portfolio={portfolio} 
+          timeSpeed={timeSpeed}
+          isSimulatingTime={isSimulatingTime}
+          height={350}
+        />
+      </motion.div>
+
+      {/* Game-like Level Progression */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.5, ease: "easeOut" }}
         className="card p-8"
       >
         {/* Level Selector Tabs */}
         <div className="flex justify-center mb-8">
           <div className="flex space-x-2">
             {[1, 2, 3, 4, 5].map((level) => {
-              const isUnlocked = level <= currentLevel;
-              const isActive = level === currentLevel;
+              const isUnlocked = level <= portfolioStats.currentLevel;
+              const isActive = level === portfolioStats.currentLevel;
               
               return (
                 <div
@@ -448,7 +590,7 @@ const Dashboard = () => {
                       : 'bg-gray-200 text-gray-400'
                   }`}
                 >
-                  {isUnlocked && level < currentLevel ? '✓' : level}
+                  {isUnlocked && level < portfolioStats.currentLevel ? '✓' : level}
                 </div>
               );
             })}
@@ -458,20 +600,20 @@ const Dashboard = () => {
         {/* Current Level Info */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Level {currentLevel}: {currentLevelConfig.name}
+            Level {portfolioStats.currentLevel}: {portfolioStats.currentLevelConfig.name}
           </h2>
-          <p className="text-gray-600 mb-4">{currentLevelConfig.description}</p>
+          <p className="text-gray-600 mb-4">{portfolioStats.currentLevelConfig.description}</p>
           <div className="inline-flex items-center space-x-4 text-sm">
             <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-              Capital: {formatCurrency(currentLevelConfig.startingCapital)}
+              Capital: {formatCurrency(portfolioStats.currentLevelConfig.startingCapital)}
             </span>
             <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full">
-              Target: {formatCurrency(currentLevelConfig.winCondition)}
+              Target: {formatCurrency(portfolioStats.currentLevelConfig.winCondition)}
             </span>
             <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full">
-              Stocks: {Array.isArray(currentLevelConfig.availableStocks) 
-                ? currentLevelConfig.availableStocks.length 
-                : currentLevelConfig.availableStocks}
+              Stocks: {Array.isArray(portfolioStats.currentLevelConfig.availableStocks) 
+                ? portfolioStats.currentLevelConfig.availableStocks.length 
+                : portfolioStats.currentLevelConfig.availableStocks}
             </span>
           </div>
         </div>
@@ -483,7 +625,7 @@ const Dashboard = () => {
           </h3>
           
           <div className="space-y-4">
-            {getLevelObjectives(currentLevel).map((objective, index) => (
+            {levelObjectives.map((objective, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, x: -20 }}
@@ -604,7 +746,7 @@ const Dashboard = () => {
       {/* Trading Modal */}
       <TradingModal
         isOpen={showTradingModal}
-        onClose={() => setShowTradingModal(false)}
+        onClose={handleCloseTradingModal}
       />
     </motion.div>
   );
