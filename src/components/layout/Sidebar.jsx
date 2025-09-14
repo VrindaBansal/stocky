@@ -61,7 +61,7 @@ const Sidebar = () => {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-[60] p-2 rounded-lg bg-white border border-gray-200 shadow-lg"
       >
         {isMobileMenuOpen ? (
           <X className="w-5 h-5 text-gray-600" />
@@ -78,7 +78,7 @@ const Sidebar = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsMobileMenuOpen(false)}
-            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-[45]"
           />
         )}
       </AnimatePresence>
