@@ -35,7 +35,7 @@ const Market = () => {
       performance: '+1.8%',
       trend: 'up',
       marketCap: '$8.9T',
-      companies: ['JNJ', 'PFE', 'ABT', 'TMO', 'LLY', 'MRK', 'UNH'],
+      companies: ['JNJ', 'PFE', 'ABT', 'TMO', 'LLY', 'MRK', 'UNH', 'ABBV', 'DHR', 'BMY', 'AMGN', 'MDT', 'ISRG', 'GILD', 'CVS'],
       description: 'Pharmaceutical, biotechnology, and medical device companies.',
       keyThemes: ['Drug Development', 'Biotech Innovation', 'Medical Devices', 'Healthcare Services']
     },
@@ -245,16 +245,21 @@ const Market = () => {
   const loadTrendingStocks = async () => {
     setIsLoading(true);
     try {
-      // Show all major stocks
-      const allMajorStocks = [
-        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX',
-        'JPM', 'V', 'JNJ', 'WMT', 'PG', 'HD', 'DIS', 'PYPL', 'ADBE', 'CRM',
-        'INTC', 'CSCO', 'PFE', 'KO', 'PEP', 'ABT', 'TMO', 'COST', 'AVGO', 'TXN',
-        'ORCL', 'ACN', 'LLY', 'NKE', 'MRK', 'UNH', 'MA', 'BABA', 'XOM', 'BAC'
+      // Collect all stocks from all sectors to ensure we have them all
+      const allSectorStocks = [];
+      Object.values(sectorData).forEach(sector => {
+        allSectorStocks.push(...sector.companies);
+      });
+      
+      // Remove duplicates and add additional popular stocks
+      const additionalStocks = [
+        'BABA', 'PYPL', 'AVGO', 'TXN', 'ACN'
       ];
+      
+      const allMajorStocks = [...new Set([...allSectorStocks, ...additionalStocks])];
       setTrendingStocks(allMajorStocks);
       
-      // Load quotes for all stocks
+      // Load quotes for all stocks - this should always work regardless of market hours
       const quotesData = await stockService.getMultipleQuotes(allMajorStocks);
       setQuotes(quotesData);
     } catch (error) {
@@ -283,6 +288,21 @@ const Market = () => {
 
   const handleSectorClick = async (sector) => {
     setSelectedSector(sector);
+    
+    // Load quotes for all companies in this sector if not already loaded
+    const sectorCompanies = sectorData[sector]?.companies || [];
+    const missingQuotes = sectorCompanies.filter(symbol => !quotes[symbol]);
+    
+    if (missingQuotes.length > 0) {
+      try {
+        const newQuotes = await stockService.getMultipleQuotes(missingQuotes);
+        setQuotes(prev => ({ ...prev, ...newQuotes }));
+      } catch (error) {
+        console.error('Error loading sector quotes:', error);
+      }
+    }
+    
+    // Load sector news if not already loaded
     if (!sectorNews[sector]) {
       const news = await fetchSectorNews(sector);
       if (news) {
@@ -363,7 +383,7 @@ const Market = () => {
                   >
                     <div className="text-sm">
                       <p className="text-gray-600 mb-2">{company.description}</p>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         <div>
                           <span className="font-medium">Sector:</span> {company.sector}
                         </div>
@@ -541,7 +561,7 @@ const Market = () => {
             className="space-y-6"
           >
             {/* Market Status */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="card p-6 bg-gradient-to-r from-green-50 to-green-100">
                 <div className="flex items-center justify-between">
                   <div>
@@ -572,7 +592,7 @@ const Market = () => {
             {/* Top Performers */}
             <div className="card p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Top Performers Today</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {['AAPL', 'MSFT', 'GOOGL', 'TSLA'].map((symbol) => (
                   <StockCard key={symbol} symbol={symbol} quote={quotes[symbol]} showWatchButton={false} />
                 ))}
@@ -592,7 +612,7 @@ const Market = () => {
             {/* Sector Overview */}
             <div className="card p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Sector Performance</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {Object.entries(sectorData).map(([sector, data]) => (
                   <SectorCard key={sector} sectorName={sector} data={data} />
                 ))}
@@ -628,7 +648,7 @@ const Market = () => {
                     </div>
 
                     {/* Sector Stats */}
-                    <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
                         <p className="text-2xl font-bold text-blue-600">
                           {sectorData[selectedSector]?.performance}
@@ -698,7 +718,7 @@ const Market = () => {
                     {/* Top Companies in Sector */}
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Companies</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {sectorData[selectedSector]?.companies.slice(0, 6).map((symbol) => (
                           <StockCard key={symbol} symbol={symbol} quote={quotes[symbol]} showWatchButton={false} />
                         ))}
@@ -727,7 +747,7 @@ const Market = () => {
               </div>
 
               {isLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[...Array(6)].map((_, i) => (
                     <div key={i} className="animate-pulse">
                       <div className="bg-gray-200 rounded-xl h-32"></div>
@@ -735,7 +755,7 @@ const Market = () => {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {trendingStocks.map((symbol, index) => (
                     <motion.div
                       key={symbol}

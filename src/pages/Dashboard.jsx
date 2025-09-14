@@ -475,7 +475,7 @@ const Dashboard = () => {
       )}
 
       {/* Portfolio Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -561,7 +561,7 @@ const Dashboard = () => {
           portfolio={portfolio} 
           timeSpeed={timeSpeed}
           isSimulatingTime={isSimulatingTime}
-          height={350}
+          height={window.innerWidth < 1024 ? 250 : 350}
         />
       </motion.div>
 

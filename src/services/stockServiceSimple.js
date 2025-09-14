@@ -55,6 +55,95 @@ class StockService {
         chartData: this.generateChartData(164.01, 30)
       }
     };
+    
+    // Add missing stocks needed for the market
+    this.addMissingStocks();
+  }
+
+  // Add missing stocks with generated data
+  addMissingStocks() {
+    const missingStocks = [
+      { symbol: 'TSLA', name: 'Tesla Inc.', basePrice: 248.50 },
+      { symbol: 'AMZN', name: 'Amazon.com Inc.', basePrice: 155.89 },
+      { symbol: 'META', name: 'Meta Platforms Inc.', basePrice: 325.67 },
+      { symbol: 'NVDA', name: 'NVIDIA Corporation', basePrice: 456.78 },
+      { symbol: 'NFLX', name: 'Netflix Inc.', basePrice: 445.32 },
+      { symbol: 'JPM', name: 'JPMorgan Chase & Co.', basePrice: 187.45 },
+      { symbol: 'V', name: 'Visa Inc.', basePrice: 267.89 },
+      { symbol: 'JNJ', name: 'Johnson & Johnson', basePrice: 156.78 },
+      { symbol: 'WMT', name: 'Walmart Inc.', basePrice: 165.43 },
+      { symbol: 'PG', name: 'Procter & Gamble Co.', basePrice: 156.89 },
+      { symbol: 'HD', name: 'The Home Depot Inc.', basePrice: 345.67 },
+      { symbol: 'DIS', name: 'The Walt Disney Co.', basePrice: 95.43 },
+      { symbol: 'PYPL', name: 'PayPal Holdings Inc.', basePrice: 65.78 },
+      { symbol: 'ADBE', name: 'Adobe Inc.', basePrice: 567.89 },
+      { symbol: 'CRM', name: 'Salesforce Inc.', basePrice: 245.67 },
+      { symbol: 'INTC', name: 'Intel Corporation', basePrice: 45.32 },
+      { symbol: 'CSCO', name: 'Cisco Systems Inc.', basePrice: 52.14 },
+      { symbol: 'PFE', name: 'Pfizer Inc.', basePrice: 35.67 },
+      { symbol: 'ABT', name: 'Abbott Laboratories', basePrice: 112.45 },
+      { symbol: 'TMO', name: 'Thermo Fisher Scientific', basePrice: 567.89 },
+      { symbol: 'LLY', name: 'Eli Lilly and Company', basePrice: 789.12 },
+      { symbol: 'MRK', name: 'Merck & Co. Inc.', basePrice: 105.67 },
+      { symbol: 'UNH', name: 'UnitedHealth Group', basePrice: 534.78 },
+      { symbol: 'ABBV', name: 'AbbVie Inc.', basePrice: 167.89 },
+      { symbol: 'DHR', name: 'Danaher Corporation', basePrice: 245.67 },
+      { symbol: 'BMY', name: 'Bristol Myers Squibb', basePrice: 67.89 },
+      { symbol: 'AMGN', name: 'Amgen Inc.', basePrice: 278.45 },
+      { symbol: 'MDT', name: 'Medtronic plc', basePrice: 89.67 },
+      { symbol: 'ISRG', name: 'Intuitive Surgical', basePrice: 345.67 },
+      { symbol: 'GILD', name: 'Gilead Sciences', basePrice: 78.90 },
+      { symbol: 'CVS', name: 'CVS Health Corporation', basePrice: 89.45 },
+      { symbol: 'MA', name: 'Mastercard Inc.', basePrice: 456.78 },
+      { symbol: 'BAC', name: 'Bank of America Corp.', basePrice: 34.56 },
+      { symbol: 'KO', name: 'The Coca-Cola Company', basePrice: 62.34 },
+      { symbol: 'PEP', name: 'PepsiCo Inc.', basePrice: 178.90 },
+      { symbol: 'COST', name: 'Costco Wholesale Corp.', basePrice: 678.90 },
+      { symbol: 'AVGO', name: 'Broadcom Inc.', basePrice: 890.12 },
+      { symbol: 'TXN', name: 'Texas Instruments', basePrice: 167.89 },
+      { symbol: 'ORCL', name: 'Oracle Corporation', basePrice: 123.45 },
+      { symbol: 'ACN', name: 'Accenture plc', basePrice: 345.67 },
+      { symbol: 'NKE', name: 'Nike Inc.', basePrice: 102.34 },
+      { symbol: 'BABA', name: 'Alibaba Group', basePrice: 87.65 },
+      { symbol: 'XOM', name: 'Exxon Mobil Corporation', basePrice: 98.76 }
+    ];
+
+    missingStocks.forEach(stock => {
+      const change = (Math.random() - 0.5) * 10; // Random change between -5 and +5
+      const changePercent = (change / stock.basePrice) * 100;
+      
+      this.stockData[stock.symbol] = {
+        symbol: stock.symbol,
+        name: stock.name,
+        price: Math.round((stock.basePrice + change) * 100) / 100,
+        change: Math.round(change * 100) / 100,
+        changePercent: Math.round(changePercent * 100) / 100,
+        volume: Math.floor(Math.random() * 50000000) + 1000000, // 1M to 51M
+        previousClose: stock.basePrice,
+        open: Math.round((stock.basePrice + (Math.random() - 0.5) * 5) * 100) / 100,
+        high: Math.round((stock.basePrice + Math.abs(change) + Math.random() * 2) * 100) / 100,
+        low: Math.round((stock.basePrice - Math.abs(change) - Math.random() * 2) * 100) / 100,
+        marketCap: Math.floor(Math.random() * 2000000000000) + 100000000000, // 100B to 2.1T
+        pe: Math.round((Math.random() * 40 + 10) * 10) / 10, // 10 to 50
+        timestamp: Date.now(),
+        source: 'fallback',
+        chartData: this.generateChartData(stock.basePrice, 30)
+      };
+    });
+  }
+
+  // Get multiple quotes at once
+  async getMultipleQuotes(symbols) {
+    const quotes = {};
+    for (const symbol of symbols) {
+      try {
+        quotes[symbol] = await this.getQuote(symbol);
+      } catch (error) {
+        console.warn(`Failed to get quote for ${symbol}:`, error.message);
+        // Continue with other stocks even if one fails
+      }
+    }
+    return quotes;
   }
 
   // Generate realistic chart data for demonstration

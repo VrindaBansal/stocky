@@ -89,12 +89,12 @@ function App() {
         <Sidebar />
         
         {/* Main content */}
-        <div className="flex-1 ml-64">
+        <div className="flex-1 lg:ml-64">
           {/* Header */}
           <Header />
           
           {/* Page content */}
-          <main className="p-6 pb-20">
+          <main className="p-4 lg:p-6 pb-20">
             <AnimatePresence mode="wait">
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
