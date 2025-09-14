@@ -46,75 +46,63 @@ const PortfolioChart = ({ portfolio, timeSpeed, isSimulatingTime, height = 300 }
     }
   }, [portfolio?.positions]);
 
-  // Initialize chart data with user's personal holding history
+  // Initialize chart data with actual transaction history
   useEffect(() => {
     const initializeChart = async () => {
       if (!portfolio?.positions?.length) return;
 
+      const chartPoints = [];
       const personalHistory = {};
-      const allTimestamps = new Set();
 
-      // Generate chart data from each stock's purchase date to now
+      // Create chart data based on actual stock ownership since purchase
       for (const position of portfolio.positions) {
         try {
           const purchaseDate = new Date(position.purchaseDate);
-          const now = new Date();
-          const daysSincePurchase = Math.max(1, Math.ceil((now - purchaseDate) / (1000 * 60 * 60 * 24)));
-          
-          // Get the stock's price at purchase (fallback to purchase price from position)
           const purchasePrice = position.purchasePrice;
           
-          // Generate simulated price history from purchase date to now
-          const stockHistory = [];
-          const currentQuote = await stockService.getQuote(position.symbol);
-          const currentPrice = currentQuote?.price || purchasePrice;
-          
-          // Create daily price points from purchase date to now
-          for (let i = 0; i <= daysSincePurchase; i++) {
-            const date = new Date(purchaseDate);
-            date.setDate(date.getDate() + i);
-            
-            // Calculate interpolated price between purchase and current price
-            let price;
-            if (i === 0) {
-              price = purchasePrice; // Start with actual purchase price
-            } else if (i === daysSincePurchase) {
-              price = currentPrice; // End with current price
-            } else {
-              // Linear interpolation with some realistic volatility
-              const progress = i / daysSincePurchase;
-              const basePrice = purchasePrice + (currentPrice - purchasePrice) * progress;
-              
-              // Add some realistic daily volatility (±2%)
-              const volatility = 0.02;
-              const randomChange = (Math.random() - 0.5) * 2 * volatility;
-              price = basePrice * (1 + randomChange);
-              
-              // Ensure price doesn't go negative
-              price = Math.max(price, purchasePrice * 0.5);
-            }
-            
-            const timestamp = date.getTime();
-            stockHistory.push({
-              timestamp,
-              price: Math.round(price * 100) / 100,
-              change: 0,
-              changePercent: 0
-            });
-            
-            allTimestamps.add(timestamp);
+          // Initialize history for this stock starting from purchase
+          if (!personalHistory[position.symbol]) {
+            personalHistory[position.symbol] = [];
           }
           
-          personalHistory[position.symbol] = stockHistory;
+          // Add the purchase point as the first data point
+          const purchaseTimestamp = purchaseDate.getTime();
+          personalHistory[position.symbol].push({
+            timestamp: purchaseTimestamp,
+            price: purchasePrice,
+            change: 0,
+            changePercent: 0
+          });
+          
+          // Get current price to show as most recent point
+          const currentQuote = await stockService.getQuote(position.symbol);
+          if (currentQuote) {
+            const now = new Date();
+            const currentTimestamp = now.getTime();
+            
+            // Only add current point if it's different from purchase (i.e., not same day)
+            if (currentTimestamp - purchaseTimestamp > 60000) { // More than 1 minute apart
+              personalHistory[position.symbol].push({
+                timestamp: currentTimestamp,
+                price: currentQuote.price,
+                change: currentQuote.change,
+                changePercent: currentQuote.changePercent
+              });
+            }
+          }
           
         } catch (error) {
-          console.warn(`Failed to generate history for ${position.symbol}:`, error);
+          console.warn(`Failed to get data for ${position.symbol}:`, error);
         }
       }
 
-      // Create chart data points from personal holding history
+      // Create unified chart data points
+      const allTimestamps = new Set();
+      Object.values(personalHistory).forEach(history => {
+        history.forEach(point => allTimestamps.add(point.timestamp));
+      });
+
       const sortedTimestamps = Array.from(allTimestamps).sort();
-      const chartPoints = [];
       
       sortedTimestamps.forEach(timestamp => {
         const dataPoint = {
@@ -126,32 +114,23 @@ const PortfolioChart = ({ portfolio, timeSpeed, isSimulatingTime, height = 300 }
         // Add stock prices for this timestamp
         Object.keys(personalHistory).forEach(symbol => {
           const stockHistory = personalHistory[symbol];
-          // Find the exact or closest price point for this timestamp
-          const exactPoint = stockHistory.find(point => point.timestamp === timestamp);
+          // Find exact point or use the most recent price before this timestamp
+          let priceToUse = null;
           
-          if (exactPoint) {
-            dataPoint[symbol] = exactPoint.price;
-          } else {
-            // Find closest point if exact timestamp not found
-            let closestPoint = stockHistory[0];
-            let minTimeDiff = Math.abs(stockHistory[0].timestamp - timestamp);
-            
-            for (const point of stockHistory) {
-              const timeDiff = Math.abs(point.timestamp - timestamp);
-              if (timeDiff < minTimeDiff) {
-                minTimeDiff = timeDiff;
-                closestPoint = point;
-              }
+          for (let i = stockHistory.length - 1; i >= 0; i--) {
+            if (stockHistory[i].timestamp <= timestamp) {
+              priceToUse = stockHistory[i].price;
+              break;
             }
-            
-            if (closestPoint) {
-              dataPoint[symbol] = closestPoint.price;
-            }
+          }
+          
+          if (priceToUse !== null) {
+            dataPoint[symbol] = priceToUse;
           }
         });
 
         // Only add data points that have at least one stock price
-        if (Object.keys(dataPoint).length > 3) { // More than timestamp, time, and date
+        if (Object.keys(dataPoint).length > 3) {
           chartPoints.push(dataPoint);
         }
       });
@@ -210,9 +189,9 @@ const PortfolioChart = ({ portfolio, timeSpeed, isSimulatingTime, height = 300 }
 
         setStockPriceHistory(updatedHistory);
         setChartData(prevData => {
+          // Add new data point to existing timeline
           const newData = [...prevData, newDataPoint];
-          // Keep only last 100 points for better historical view
-          return newData.length > 100 ? newData.slice(-100) : newData;
+          return newData;
         });
       }, 2000); // Update every 2 seconds
 
