@@ -46,45 +46,85 @@ const PortfolioChart = ({ portfolio, timeSpeed, isSimulatingTime, height = 300 }
     }
   }, [portfolio?.positions]);
 
-  // Initialize chart data with current stock prices
+  // Initialize chart data with historical stock prices
   useEffect(() => {
     const initializeChart = async () => {
       if (!portfolio?.positions?.length) return;
 
-      const now = new Date();
-      const initialData = [];
       const initialHistory = {};
+      const chartPoints = [];
 
-      // Get current prices for all stocks in portfolio
+      // Get historical chart data for all stocks in portfolio (last 30 days)
       for (const position of portfolio.positions) {
         try {
-          const quote = await stockService.getQuote(position.symbol);
-          if (quote) {
-            initialHistory[position.symbol] = [{
-              timestamp: now.getTime(),
-              price: quote.price,
-              change: quote.change,
-              changePercent: quote.changePercent
-            }];
+          const chartData = await stockService.getChartData(position.symbol, '30d');
+          if (chartData && chartData.length > 0) {
+            initialHistory[position.symbol] = chartData.map(point => ({
+              timestamp: new Date(point.date).getTime(),
+              price: point.price,
+              change: 0, // Historical points don't have change data
+              changePercent: 0
+            }));
           }
         } catch (error) {
-          console.warn(`Failed to get quote for ${position.symbol}`);
+          console.warn(`Failed to get chart data for ${position.symbol}`);
+          // Fallback to current price if historical data fails
+          try {
+            const quote = await stockService.getQuote(position.symbol);
+            if (quote) {
+              const now = new Date();
+              initialHistory[position.symbol] = [{
+                timestamp: now.getTime(),
+                price: quote.price,
+                change: quote.change,
+                changePercent: quote.changePercent
+              }];
+            }
+          } catch (fallbackError) {
+            console.warn(`Fallback failed for ${position.symbol}`);
+          }
         }
       }
 
-      // Create first data point
-      const dataPoint = {
-        timestamp: now.getTime(),
-        time: now.toLocaleTimeString()
-      };
-
-      Object.keys(initialHistory).forEach(symbol => {
-        if (initialHistory[symbol].length > 0) {
-          dataPoint[symbol] = initialHistory[symbol][0].price;
-        }
+      // Create chart data points from historical data
+      // Find all unique timestamps and create data points
+      const allTimestamps = new Set();
+      Object.values(initialHistory).forEach(history => {
+        history.forEach(point => allTimestamps.add(point.timestamp));
       });
 
-      setChartData([dataPoint]);
+      // Sort timestamps and create chart data
+      const sortedTimestamps = Array.from(allTimestamps).sort();
+      
+      sortedTimestamps.forEach(timestamp => {
+        const dataPoint = {
+          timestamp: timestamp,
+          time: new Date(timestamp).toLocaleDateString(),
+          date: new Date(timestamp).toLocaleDateString()
+        };
+
+        // Add stock prices for this timestamp
+        Object.keys(initialHistory).forEach(symbol => {
+          const stockHistory = initialHistory[symbol];
+          // Find the closest price point for this timestamp
+          let closestPoint = stockHistory[0];
+          let minTimeDiff = Math.abs(stockHistory[0].timestamp - timestamp);
+          
+          for (const point of stockHistory) {
+            const timeDiff = Math.abs(point.timestamp - timestamp);
+            if (timeDiff < minTimeDiff) {
+              minTimeDiff = timeDiff;
+              closestPoint = point;
+            }
+          }
+          
+          dataPoint[symbol] = closestPoint.price;
+        });
+
+        chartPoints.push(dataPoint);
+      });
+
+      setChartData(chartPoints);
       setStockPriceHistory(initialHistory);
     };
 
@@ -139,8 +179,8 @@ const PortfolioChart = ({ portfolio, timeSpeed, isSimulatingTime, height = 300 }
         setStockPriceHistory(updatedHistory);
         setChartData(prevData => {
           const newData = [...prevData, newDataPoint];
-          // Keep only last 50 points for performance
-          return newData.length > 50 ? newData.slice(-50) : newData;
+          // Keep only last 100 points for better historical view
+          return newData.length > 100 ? newData.slice(-100) : newData;
         });
       }, 2000); // Update every 2 seconds
 
@@ -159,10 +199,17 @@ const PortfolioChart = ({ portfolio, timeSpeed, isSimulatingTime, height = 300 }
   // Custom tooltip
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      const formattedDate = new Date(label).toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+      
       return (
         <div className="bg-white p-4 border border-gray-200 rounded-xl shadow-lg min-w-48">
           <p className="text-sm text-gray-600 mb-2 font-medium">
-            {label}
+            {formattedDate}
           </p>
           <div className="space-y-1">
             {payload.map((entry) => {
@@ -215,9 +262,9 @@ const PortfolioChart = ({ portfolio, timeSpeed, isSimulatingTime, height = 300 }
       {/* Chart Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Live Stock Performance</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Stock Performance Chart</h3>
           <p className="text-sm text-gray-500">
-            Real-time price changes for your portfolio stocks
+            Historical price trends for your portfolio stocks (last 30 days)
             {isSimulatingTime && timeSpeed > 1 && (
               <span className="ml-2 text-blue-600 font-medium">
                 ({timeSpeed}x speed)
@@ -259,10 +306,14 @@ const PortfolioChart = ({ portfolio, timeSpeed, isSimulatingTime, height = 300 }
           <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
             <XAxis 
-              dataKey="time" 
+              dataKey="date" 
               stroke="#666"
               fontSize={11}
               interval="preserveStartEnd"
+              tickFormatter={(value) => {
+                const date = new Date(value);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              }}
             />
             <YAxis 
               domain={['dataMin - 5', 'dataMax + 5']}
