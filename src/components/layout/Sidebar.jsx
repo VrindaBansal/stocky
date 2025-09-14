@@ -61,12 +61,13 @@ const Sidebar = () => {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-[60] p-2 rounded-lg bg-white border border-gray-200 shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-[60] p-2.5 rounded-lg bg-white border border-gray-200 shadow-lg hover:bg-gray-50 transition-colors duration-200"
+        aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
       >
         {isMobileMenuOpen ? (
-          <X className="w-5 h-5 text-gray-600" />
+          <X className="w-5 h-5 text-gray-700" />
         ) : (
-          <Menu className="w-5 h-5 text-gray-600" />
+          <Menu className="w-5 h-5 text-gray-700" />
         )}
       </button>
 
@@ -78,7 +79,7 @@ const Sidebar = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsMobileMenuOpen(false)}
-            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-[45]"
+            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-[45] touch-none"
           />
         )}
       </AnimatePresence>
@@ -93,7 +94,7 @@ const Sidebar = () => {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className={`
           fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-50
-          transform transition-transform duration-300 ease-in-out
+          transform transition-transform duration-300 ease-in-out overflow-y-auto
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
         `}

@@ -94,7 +94,7 @@ function App() {
           <Header />
           
           {/* Page content */}
-          <main className="p-4 lg:p-6 pb-20">
+          <main className="p-3 sm:p-4 lg:p-6 pb-20">
             <AnimatePresence mode="wait">
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />

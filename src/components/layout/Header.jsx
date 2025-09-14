@@ -24,7 +24,7 @@ const Header = () => {
     >
       <div className="flex items-center justify-between">
         {/* Left side - Welcome */}
-        <div className="ml-12 lg:ml-0">
+        <div className="ml-14 lg:ml-0">
           <h1 className="text-lg lg:text-xl font-semibold text-gray-900">
             Good morning, {username}
           </h1>
