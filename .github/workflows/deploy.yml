@@ -1,58 +1,55 @@
-name: Deploy Stocky Frontend
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
+    - name: Checkout
+      uses: actions/checkout@v4
+      
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
-    
+        
     - name: Install dependencies
       run: npm ci
-    
-    - name: Run tests
-      run: npm test
-    
-    - name: Build application
+      
+    - name: Build
       run: npm run build
-      env:
-        VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-    
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+      
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        name: dist-files
-        path: dist/
+        path: './dist'
 
   deploy:
-    needs: test
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    needs: build
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Deploy to Netlify
-      uses: nwtgck/actions-netlify@v2.1
-      with:
-        publish-dir: './dist'
-        production-branch: main
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        deploy-message: "Deploy from GitHub Actions"
-        enable-pull-request-comment: false
-        enable-commit-comment: true
-      env:
-        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

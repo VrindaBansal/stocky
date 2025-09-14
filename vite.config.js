@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/', // Use root for Netlify deployment
+  base: '/stocky/', // GitHub Pages deployment
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -16,7 +16,7 @@ export default defineConfig({
           redux: ['@reduxjs/toolkit', 'react-redux'],
           ui: ['framer-motion', 'lucide-react'],
           charts: ['chart.js', 'react-chartjs-2', 'recharts'],
-          utils: ['axios', 'moment', 'react-hot-toast']
+          utils: ['moment', 'react-hot-toast']
         }
       }
     },
