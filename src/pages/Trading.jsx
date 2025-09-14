@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useParams } from 'react-router-dom';
 import { ShoppingCart, TrendingUp, DollarSign } from 'lucide-react';
 import { buyStock, sellStock } from '../store/slices/portfolioSlice.js';
-import stockService from '../services/stockService.js';
+import stockService from '../services/stockServiceSimple.js';
 import { formatCurrency } from '../utils/helpers.js';
 import toast from 'react-hot-toast';
 

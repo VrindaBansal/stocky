@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { formatCurrency } from '../../utils/helpers.js';
-import stockService from '../../services/stockService.js';
+import stockService from '../../services/stockServiceSimple.js';
 
 const StockChart = ({ symbol, height = 400, showControls = true }) => {
   const [data, setData] = useState([]);

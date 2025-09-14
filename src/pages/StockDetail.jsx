@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, TrendingUp, ShoppingCart, Eye } from 'lucide-react';
-import stockService from '../services/stockService.js';
+import stockService from '../services/stockServiceSimple.js';
 import { formatCurrency, formatPercentage, getGainLossColor } from '../utils/helpers.js';
 import StockChart from '../components/charts/StockChart.jsx';
 

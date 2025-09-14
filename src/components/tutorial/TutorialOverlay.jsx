@@ -14,7 +14,7 @@ import {
   Target,
   Pause
 } from 'lucide-react';
-import stockService from '../../services/stockService.js';
+import stockService from '../../services/stockServiceSimple.js';
 import StockChart from '../charts/StockChart.jsx';
 import {
   LineChart,
