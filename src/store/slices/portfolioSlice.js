@@ -5,7 +5,6 @@ import { LEVELS } from '../../utils/constants.js';
 import { generateId, calculatePortfolioValue } from '../../utils/helpers.js';
 
 const initialState = {
-  currentLevel: 1,
   portfolios: {}, // Will hold portfolio for each level
   activePortfolio: {
     level: 1,
@@ -55,12 +54,14 @@ const portfolioSlice = createSlice({
   name: 'portfolio',
   initialState,
   reducers: {
-    initializePortfolios: (state) => {
+    initializePortfolios: (state, action) => {
+      // Get current level from user state or default to 1
+      const currentLevel = action.payload?.currentLevel || 1;
+      
       // Load all existing portfolios
       state.portfolios = StorageService.getAllPortfolios();
       
       // Set active portfolio based on current level
-      const currentLevel = state.currentLevel;
       state.activePortfolio = StorageService.getPortfolio(currentLevel);
       
       // If no portfolio exists for current level, create one
@@ -86,7 +87,6 @@ const portfolioSlice = createSlice({
     
     setActiveLevel: (state, action) => {
       const level = action.payload;
-      state.currentLevel = level;
       state.activePortfolio = StorageService.getPortfolio(level);
       
       // Create new portfolio if doesn't exist

@@ -253,13 +253,13 @@ const Onboarding = () => {
         })).unwrap();
         
         console.log('✅ Backend registration successful');
-        dispatch(initializePortfolios());
+        dispatch(initializePortfolios({ currentLevel: 1 }));
         dispatch(completeOnboarding());
       } catch (error) {
         console.warn('❌ Backend registration failed, using localStorage:', error.message);
         // Fallback to localStorage if API fails
         dispatch(createUser({ username: username.trim(), avatar: selectedAvatar }));
-        dispatch(initializePortfolios());
+        dispatch(initializePortfolios({ currentLevel: 1 }));
         dispatch(completeOnboarding());
       }
     }

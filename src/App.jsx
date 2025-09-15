@@ -2,11 +2,13 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
+import { store } from './store/store.js';
 
 // Store actions
 import { initializeUser, initializeUserFromAPI, recordLogin } from './store/slices/userSlice.js';
 import { initializePortfolios, fetchAllPortfolios } from './store/slices/portfolioSlice.js';
 import { initializeTutorial } from './store/slices/tutorialSlice.js';
+import { initializeGame } from './store/slices/gameSlice.js';
 
 // Layout Components
 import Header from './components/layout/Header.jsx';
@@ -15,6 +17,7 @@ import Sidebar from './components/layout/Sidebar.jsx';
 // Page Components
 import Onboarding from './pages/Onboarding.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import Progress from './pages/Progress.jsx';
 import Portfolio from './pages/Portfolio.jsx';
 import Market from './pages/Market.jsx';
 import Trading from './pages/Trading.jsx';
@@ -22,9 +25,16 @@ import Education from './pages/Education.jsx';
 import Profile from './pages/Profile.jsx';
 import StockDetail from './pages/StockDetail.jsx';
 
+// Level Completion
+import LevelCompletionModal from './components/LevelCompletionModal.jsx';
+import useLevelCompletion from './hooks/useLevelCompletion.js';
+
 function App() {
   const dispatch = useDispatch();
   const { isInitialized, isOnboarding } = useSelector(state => state.user);
+  
+  // Level completion detection
+  const { isLevelComplete, completionData, resetCompletion } = useLevelCompletion();
   
   useEffect(() => {
     // Smart initialization: Try backend first, fallback to localStorage
@@ -42,17 +52,21 @@ function App() {
           }
         } else {
           // No authenticated user, use localStorage
-          dispatch(initializeUser());
-          dispatch(initializePortfolios());
+          await dispatch(initializeUser());
+          // Pass current level from user state
+          const userState = store.getState().user;
+          dispatch(initializePortfolios({ currentLevel: userState.currentLevel }));
         }
       } catch (error) {
         console.warn('Backend unavailable, using localStorage only');
         // Fallback to localStorage if API fails
-        dispatch(initializeUser());
-        dispatch(initializePortfolios());
+        await dispatch(initializeUser());
+        const userState = store.getState().user;
+        dispatch(initializePortfolios({ currentLevel: userState.currentLevel }));
       }
       
       dispatch(initializeTutorial());
+      dispatch(initializeGame());
       dispatch(recordLogin());
     };
 
@@ -99,6 +113,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/progress" element={<Progress />} />
                 <Route path="/portfolio" element={<Portfolio />} />
                 <Route path="/market" element={<Market />} />
                 <Route path="/market/:symbol" element={<StockDetail />} />
@@ -112,6 +127,17 @@ function App() {
           </main>
         </div>
       </div>
+
+      {/* Level Completion Modal */}
+      {completionData && (
+        <LevelCompletionModal
+          isOpen={isLevelComplete}
+          level={completionData.level}
+          portfolioValue={completionData.portfolioValue}
+          performance={completionData.performance}
+          timeToComplete={completionData.timeToComplete}
+        />
+      )}
     </div>
   );
 }

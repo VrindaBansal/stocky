@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, TrendingUp, Eye, Building2, Factory, ExternalLink, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import stockService from '../services/stockServiceSimple.js';
 import { formatCurrency, formatPercentage, getGainLossColor } from '../utils/helpers.js';
 
@@ -17,9 +18,12 @@ const Market = () => {
   const [newsLoading, setNewsLoading] = useState(false);
   const [expandedCompany, setExpandedCompany] = useState(null);
 
+  // Get current level from Redux
+  const { currentLevel } = useSelector(state => state.game);
+
   useEffect(() => {
     loadTrendingStocks();
-  }, []);
+  }, [currentLevel]);
 
   // Market data and company information
   const sectorData = {
@@ -245,22 +249,12 @@ const Market = () => {
   const loadTrendingStocks = async () => {
     setIsLoading(true);
     try {
-      // Collect all stocks from all sectors to ensure we have them all
-      const allSectorStocks = [];
-      Object.values(sectorData).forEach(sector => {
-        allSectorStocks.push(...sector.companies);
-      });
+      // Get available stocks based on current level
+      const availableStocks = stockService.getAvailableSymbols(currentLevel);
+      setTrendingStocks(availableStocks);
       
-      // Remove duplicates and add additional popular stocks
-      const additionalStocks = [
-        'BABA', 'PYPL', 'AVGO', 'TXN', 'ACN'
-      ];
-      
-      const allMajorStocks = [...new Set([...allSectorStocks, ...additionalStocks])];
-      setTrendingStocks(allMajorStocks);
-      
-      // Load quotes for all stocks - this should always work regardless of market hours
-      const quotesData = await stockService.getMultipleQuotes(allMajorStocks);
+      // Load quotes for available stocks - this should always work regardless of market hours
+      const quotesData = await stockService.getMultipleQuotes(availableStocks);
       setQuotes(quotesData);
     } catch (error) {
       console.error('Error loading stocks:', error);

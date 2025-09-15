@@ -12,7 +12,8 @@ import {
   Wallet,
   Zap,
   Menu,
-  X
+  X,
+  Trophy
 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 
@@ -27,6 +28,11 @@ const Sidebar = () => {
       name: 'Dashboard',
       href: '/dashboard',
       icon: Home,
+    },
+    {
+      name: 'Progress',
+      href: '/progress',
+      icon: Trophy,
     },
     {
       name: 'Portfolio',

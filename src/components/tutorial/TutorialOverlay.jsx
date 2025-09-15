@@ -109,14 +109,13 @@ const TutorialOverlay = ({ isOpen, onClose, onComplete }) => {
       for (const stockInfo of tutorialStocks) {
         try {
           const quote = await stockService.getQuote(stockInfo.symbol);
-          const historicalData = await stockService.getHistoricalData(stockInfo.symbol, '3M');
           
           prices[stockInfo.symbol] = {
             ...stockInfo,
             price: quote?.price || 150,
             change: quote?.change || 0,
             changePercent: quote?.changePercent || 0,
-            historicalData: historicalData || []
+            historicalData: []
           };
         } catch (error) {
           console.error(`Error loading ${stockInfo.symbol}:`, error);

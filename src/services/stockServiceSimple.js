@@ -314,9 +314,18 @@ class StockService {
     }, 5000); // Update every 5 seconds for demo
   }
 
-  // Get available symbols
-  getAvailableSymbols() {
-    return Object.keys(this.stockData);
+  // Get available symbols based on level
+  getAvailableSymbols(level = 1) {
+    const { STOCK_POOLS } = require('../utils/constants.js');
+    
+    if (level === 1) {
+      return STOCK_POOLS.level1;
+    } else if (level === 2) {
+      return STOCK_POOLS.level2;
+    } else {
+      // Level 3+ has access to all stocks
+      return Object.keys(this.stockData);
+    }
   }
 
   // Search stocks (simple implementation)
